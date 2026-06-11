@@ -14,8 +14,7 @@ WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-RUN playwright install chromium
-RUN playwright install-deps chromium
+RUN playwright install chromium --with-deps
 
 COPY bot.py config.py grok_bridge.py chat_store.py handlers.py ./
 
