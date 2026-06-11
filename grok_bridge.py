@@ -138,7 +138,7 @@ class GrokBridge:
                     await self.page.goto(GROK_URL, wait_until="domcontentloaded", timeout=20000)
                 await self.page.wait_for_selector(SEL_INPUT, timeout=10000)
                 return self.page.url
-            except Exception as e:
+            except Exception:
                 log.exception("new_chat() failed")
                 return None
 
@@ -149,7 +149,7 @@ class GrokBridge:
                 await self.page.wait_for_selector(SEL_INPUT, timeout=10000)
                 self._ready = True
                 return True
-            except Exception as e:
+            except Exception:
                 log.exception("switch_to() failed")
                 self._ready = False
                 return False
