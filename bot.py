@@ -23,7 +23,7 @@ async def main():
     app.bot_data["bridge"] = bridge
 
     app.add_handler(CommandHandler("start", cmd_start))
-    app.add_handler(CommandHandler(["menu", "меню"], cmd_menu))
+    app.add_handler(CommandHandler("menu", cmd_menu))
     app.add_handler(CommandHandler("new", cmd_new))
     app.add_handler(CommandHandler("list", cmd_list))
     app.add_handler(CommandHandler("switch", cmd_switch))
@@ -34,9 +34,18 @@ async def main():
     app.add_handler(CallbackQueryHandler(handle_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling(allowed_updates=["message", "callback_query"])
+
+    logging.info("Application started")
+
     try:
-        await app.run_polling(allowed_updates=["message", "callback_query"])
+        await asyncio.Event().wait()
     finally:
+        await app.updater.stop()
+        await app.stop()
+        await app.shutdown()
         await bridge.stop()
 
 
