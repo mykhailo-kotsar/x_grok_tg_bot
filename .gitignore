@@ -1,0 +1,9 @@
+browser_session/
+chats/
+.env
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+data/
