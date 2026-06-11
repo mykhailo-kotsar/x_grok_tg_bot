@@ -1,0 +1,114 @@
+name: CI / CD
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ────────────────────────────────────────────
+  # CI — runs on every push / PR to any branch
+  # ────────────────────────────────────────────
+  lint:
+    name: Lint & Validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install ruff python-dotenv
+
+      - name: Check .env is not committed
+        run: |
+          if git ls-files | grep -qE '^\.env$'; then
+            echo "ERROR: .env is tracked by git — remove it immediately"
+            exit 1
+          fi
+
+      - name: Check browser_session is not committed
+        run: |
+          if git ls-files | grep -q 'browser_session/'; then
+            echo "ERROR: browser_session/ is tracked by git — Twitter cookies must not be public"
+            exit 1
+          fi
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Syntax check (all .py files)
+        run: |
+          for f in $(find . -name "*.py" -not -path "./.venv/*"); do
+            python -m py_compile "$f" && echo "OK $f" || exit 1
+          done
+
+      - name: Verify required files exist
+        run: |
+          for f in bot.py config.py grok_bridge.py chat_store.py handlers.py \
+                   login.py requirements.txt .env.example Dockerfile docker-compose.yml; do
+            [ -f "$f" ] || { echo "MISSING: $f"; exit 1; }
+          done
+
+  docker-build:
+    name: Docker Build Check
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t grok-tg-bot:ci .
+
+  # ────────────────────────────────────────────────────────────────────
+  # CD — auto-deploy to server on push to main
+  #
+  # DISABLED BY DEFAULT — uncomment this entire job when ready.
+  #
+  # Before enabling:
+  #
+  #   On the server:
+  #     adduser --disabled-password --gecos "" deploy
+  #     ssh-keygen -t ed25519 -C "github-actions" -f /tmp/deploy_key -N ""
+  #     mkdir -p /home/deploy/.ssh
+  #     cat /tmp/deploy_key.pub >> /home/deploy/.ssh/authorized_keys
+  #     chmod 700 /home/deploy/.ssh && chmod 600 /home/deploy/.ssh/authorized_keys
+  #     chown -R deploy:deploy /home/deploy/.ssh
+  #     usermod -aG docker deploy
+  #     echo "deploy ALL=(ALL) NOPASSWD: /bin/systemctl restart grok-tg-bot" >> /etc/sudoers.d/deploy
+  #     chown -R deploy:deploy /opt/grok-tg-bot
+  #
+  #   In GitHub → Settings → Secrets → Actions:
+  #     SSH_PRIVATE_KEY  — contents of /tmp/deploy_key
+  #     SSH_HOST         — your server IP
+  #     SSH_USER         — deploy
+  #
+  # ────────────────────────────────────────────────────────────────────
+
+  # deploy:
+  #   name: Deploy to Server
+  #   needs: docker-build
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  #
+  #   steps:
+  #     - name: Deploy via SSH
+  #       uses: appleboy/ssh-action@v1.0.3
+  #       with:
+  #         host: ${{ secrets.SSH_HOST }}
+  #         username: ${{ secrets.SSH_USER }}
+  #         key: ${{ secrets.SSH_PRIVATE_KEY }}
+  #         script: |
+  #           set -e
+  #           cd /opt/grok-tg-bot
+  #           git pull origin main
+  #           docker compose build --no-cache
+  #           sudo systemctl restart grok-tg-bot
+  #           sleep 5
+  #           systemctl is-active --quiet grok-tg-bot && echo "OK: service is running" || { echo "FAIL: service did not start"; exit 1; }
