@@ -1,0 +1,28 @@
+services:
+  grok-tg-bot:
+    build: .
+    image: grok-tg-bot:latest
+    container_name: grok-tg-bot
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    volumes:
+      - /opt/grok-tg-bot/data/browser_session:/app/browser_session
+      - /opt/grok-tg-bot/data/chats:/app/chats
+
+    # Required for Chromium stability on heavy pages like Twitter/Grok
+    shm_size: "1gb"
+
+    logging:
+      driver: journald
+      options:
+        tag: grok-tg-bot
+
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; open('/app/browser_session/.lock') if os.path.exists('/app/browser_session/.lock') else exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s

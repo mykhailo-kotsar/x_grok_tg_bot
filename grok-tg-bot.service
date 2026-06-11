@@ -1,0 +1,27 @@
+[Unit]
+Description=Grok Telegram Bridge (Docker)
+Documentation=https://github.com/YOUR_USERNAME/grok-tg-bot
+After=network-online.target docker.service
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/grok-tg-bot
+
+ExecStartPre=/usr/bin/docker compose pull --quiet
+ExecStart=/usr/bin/docker compose up -d --build
+ExecStop=/usr/bin/docker compose down
+ExecReload=/usr/bin/docker compose restart
+
+# If the container crashes, systemd restarts this unit which brings it back up
+Restart=on-failure
+RestartSec=15s
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=grok-tg-bot
+
+[Install]
+WantedBy=multi-user.target
